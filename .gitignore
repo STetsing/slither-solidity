@@ -2,3 +2,4 @@
 node_modules
 full_match
 partial_match
+__pycache__
