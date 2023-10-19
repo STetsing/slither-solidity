@@ -1,0 +1,17 @@
+dask==2023.10.0
+datasets==2.14.5
+eth-abi==4.2.1
+eth-account==0.9.0
+eth-hash==0.5.2
+eth-keyfile==0.6.1
+eth-keys==0.4.0
+eth-rlp==0.3.0
+eth-typing==3.5.0
+eth-utils==2.2.2
+numpy==1.26.0
+pandarallel==1.6.5
+pandas==2.1.1
+slither-analyzer==0.9.6
+solc-select==1.0.4
+swifter==1.4.0
+tqdm==4.66.1
