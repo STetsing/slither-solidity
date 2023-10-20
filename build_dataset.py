@@ -5,7 +5,7 @@ import os, json
 import time
 import swifter
 from pandarallel import pandarallel
-pandarallel.initialize(progress_bar=True, nb_workers=2*os.cpu_count())
+pandarallel.initialize(progress_bar=True, nb_workers=os.cpu_count())
 
 
 
@@ -21,9 +21,6 @@ else:
     contracts_dirs = pd.concat([contracts_dirs_full, contracts_dirs_partial])
 
 contracts_dirs = contracts_dirs[contracts_dirs.has_src_files == True]
-contracts_dirs
-
-#
 
 def slither_process(df_row):
     result = []

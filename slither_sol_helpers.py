@@ -128,3 +128,20 @@ def get_slither_check_from_json(slither_result):
         return None
     else: 
         return [detectors.get(d.get('check'))['idx'] for d in slither_result.get('results').get('detectors')]
+    
+
+def get_sol_data(sol_file, rm_comments=False):
+    try:
+        with open(sol_file, 'r') as f:
+            data = f.readlines()
+
+        if rm_comments:
+            sol_no_comments = []
+            for l in data:
+                sol_no_comments.append('') if l.startswith('//') else sol_no_comments.append(l) 
+            return ''.join(sol_no_comments).strip('\n')
+        else:
+            return ''.join(data)
+    except Exception as ex:
+        raise ValueError("Error reading sol file.", ex)
+        
