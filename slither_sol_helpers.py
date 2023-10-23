@@ -4,6 +4,7 @@ import subprocess
 from tqdm import tqdm
 import pandas as pd
 import glob
+import hashlib
 
 detectors_json = './detectors.json'
 with open(detectors_json, 'r') as f:
@@ -144,4 +145,9 @@ def get_sol_data(sol_file, rm_comments=False):
             return ''.join(data)
     except Exception as ex:
         raise ValueError("Error reading sol file.", ex)
-        
+
+def get_MD5_checksum(sol_data):
+    try:
+        return str(hashlib.md5(str(sol_data).encode('utf-8')).hexdigest())
+    except Exception as ex:
+        print('error in computing the checksum', ex)

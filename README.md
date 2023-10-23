@@ -4,11 +4,16 @@ The solidity contract data are preprocessed here for training a solidity code ge
 
 ## Data Processing Approach
 With the main dataset being ~43 GB large, this provide a solid base for training an LLM. However, to avoid vulnerabilities and further bias, the processing strategy involves first compiling each project or solidity files.
+
 Run
 ```bash 
 $ python build_dataset.py
 ```
-for slithering all the sol files. The slithering process is applied on all single Solidity files in every contract directory. A project wide slither process is not supported yet
+for slithering all the sol files. The slithering process is applied on all single Solidity files in every contract directory. A project wide slither process is not supported yet. 
+
+- First extract the contract directories
+- Filter the directories and only keep those with solidity source files
+- hash processed files thereby avoiding multiple processings and duplicates
 
 ## Download Raw Data
 You can follow the [instructions in the docs](https://docs.sourcify.dev/docs/repository/#s3-bucket) and contact [Kaan Uzdogan](mailto:kaan.uzdogan@ethereum.org) for the credentials.

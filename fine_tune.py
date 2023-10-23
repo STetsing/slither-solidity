@@ -1,12 +1,13 @@
 import numpy as np
 import datasets
 import evaluate
+import math
 import torch
 import pandas as pd
 from datasets import Dataset
 from datasets import load_metric
 from transformers import AutoTokenizer, RobertaTokenizer
-from transformers import AutoModelForCausalLM, Trainer, TrainingArguments, T5ForConditionalGeneration
+from transformers import AutoModelForCausalLM, Trainer, TrainerCallback, TrainingArguments, T5ForConditionalGeneration
 from transformers import DataCollatorForLanguageModeling
 from slither_sol_helpers import get_sol_data
 
@@ -28,12 +29,12 @@ training_args = TrainingArguments('test_trainer',
         save_strategy = "epoch",
         prediction_loss_only=True,
         logging_strategy="steps",
-        logging_steps=500,
+        logging_steps=50,
         seed=100)
 
 # raw_sol_data = load_dataset('mwritescode/slither-audited-smart-contracts', 'all-plain-text')
 
-raw_sol_data = Dataset.from_pandas(pd.read_pickle('./slither_processed_contracts_sample100.pkl'))
+raw_sol_data = Dataset.from_pandas(pd.read_pickle('./slither_processed_contracts_sample100.pkl').sample(10))
 #tokenizer = AutoTokenizer.from_pretrained(base_model)
 tokenizer = AutoTokenizer.from_pretrained(base_model)
 tokenizer.pad_token = tokenizer.eos_token
@@ -99,16 +100,27 @@ def compute_metrics(eval_pred):
     logits, labels = eval_pred
     predictions = np.argmax(logits, axis=-1)
     return metric.compute(predictions=predictions, references=labels)
-                          
+
+class PerplexCallback(TrainerCallback):
+    "A callback that computes the model perplexity"
+
+    def on_epoch_end(self, args, state, control, **kwargs):
+        eval_results = trainer.evaluate()
+        print(f"\nModel Perplexity: {math.exp(eval_results['eval_loss']):.2f}")
+
+
 trainer = Trainer(
     model=model, 
+    tokenizer=tokenizer,
     args=training_args, 
     train_dataset=full_train_dataset, 
     eval_dataset=full_eval_dataset, 
+    callbacks=[PerplexCallback],
     #compute_metrics=compute_metrics,
     data_collator=data_collator # very important, does the label shifting by 1
 )
 
 trainer.train()
+
 tokenizer.save_pretrained('./solidity_gpt2')
 trainer.save_model('./solidity_gpt2')

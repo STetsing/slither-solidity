@@ -3,3 +3,6 @@ node_modules
 full_match
 partial_match
 __pycache__
+dataset_subs
+test_trainer
+solidity_gpt2
