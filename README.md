@@ -27,3 +27,9 @@ Consider install all ```solc``` versions as the sources file might need differen
 $ pip install solc_select
 $ solc-select install all 
 ```
+
+## Fine Tuning
+The herein provided source code supports finetuning Causal LLM. 
+```bash 
+$ accelerate launch fine_tune.py
+```

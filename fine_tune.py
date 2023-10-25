@@ -1,3 +1,4 @@
+import os 
 import numpy as np
 import datasets
 import evaluate
@@ -5,23 +6,27 @@ import math
 import torch
 import pandas as pd
 from datasets import Dataset
-from datasets import load_metric
+from datasets import load_metric, load_from_disk 
 from transformers import AutoTokenizer, RobertaTokenizer
 from transformers import AutoModelForCausalLM, Trainer, TrainerCallback, TrainingArguments, T5ForConditionalGeneration
 from transformers import DataCollatorForLanguageModeling
 from slither_sol_helpers import get_sol_data
+from accelerate import Accelerator
 
+device = Accelerator.device
+print('Info: Computing device is:', device)
 torch.cuda.empty_cache()
 
-block_size = 128
-context_length = 32
+block_size = 32
+context_length = block_size
 base_model = '../solidity-generator'
+accelerator = Accelerator()
 
 training_args = TrainingArguments('test_trainer', 
         evaluation_strategy="epoch", 
         learning_rate=7e-5, 
-        per_device_eval_batch_size=32,
-        per_device_train_batch_size=32,
+        per_device_eval_batch_size=40,
+        per_device_train_batch_size=40,
         num_train_epochs=10,
         push_to_hub=False,
         save_total_limit=2,
@@ -29,12 +34,12 @@ training_args = TrainingArguments('test_trainer',
         save_strategy = "epoch",
         prediction_loss_only=True,
         logging_strategy="steps",
-        logging_steps=50,
+        logging_steps=500,
         seed=100)
 
 # raw_sol_data = load_dataset('mwritescode/slither-audited-smart-contracts', 'all-plain-text')
 
-raw_sol_data = Dataset.from_pandas(pd.read_pickle('./slither_processed_contracts_sample100.pkl').sample(10))
+raw_sol_data = Dataset.from_pandas(pd.read_pickle('./slither_processed_contracts.pkl'))
 #tokenizer = AutoTokenizer.from_pretrained(base_model)
 tokenizer = AutoTokenizer.from_pretrained(base_model)
 tokenizer.pad_token = tokenizer.eos_token
@@ -74,14 +79,22 @@ def group_texts(examples):
     result["labels"] = result["input_ids"].copy()
     return result
 
-dataset = raw_sol_data.train_test_split(test_size=0.1)
-full_train_dataset = dataset["train"]
-full_eval_dataset = dataset["test"]
+dataset = raw_sol_data#.train_test_split(test_size=0.1)
 
-full_train_dataset = full_train_dataset.map(tokenize_function, batched=True, remove_columns=full_eval_dataset.column_names)#.map(group_texts, batched=True)
-full_eval_dataset = full_eval_dataset.map(tokenize_function, batched=True, remove_columns=full_eval_dataset.column_names)#.map(group_texts, batched=True)
+if not os.path.exists('./sol_dataset'):
+    dataset = dataset.map(tokenize_function, batched=True, remove_columns=dataset.column_names)#.map(group_texts, batched=True)
+    dataset.save_to_disk('./sol_dataset')
+else:
+    print('Info: loaded preprocessed set from disk!')
+    dataset = load_from_disk('./sol_dataset')
 
-model = AutoModelForCausalLM.from_pretrained(base_model)
+dataset = dataset.train_test_split(test_size=0.1)
+
+train_set = dataset['train']
+eval_set = dataset['test']
+
+model = AutoModelForCausalLM.from_pretrained(base_model).to(device)
+#model = model.to(dtype=torch.float16)
 
 param_size = 0
 for param in model.parameters():
@@ -113,8 +126,8 @@ trainer = Trainer(
     model=model, 
     tokenizer=tokenizer,
     args=training_args, 
-    train_dataset=full_train_dataset, 
-    eval_dataset=full_eval_dataset, 
+    train_dataset=train_set, 
+    eval_dataset=eval_set, 
     callbacks=[PerplexCallback],
     #compute_metrics=compute_metrics,
     data_collator=data_collator # very important, does the label shifting by 1

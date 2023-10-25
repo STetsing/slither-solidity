@@ -21,7 +21,7 @@ else:
     contracts_dirs_full = check_folder_structure(full_dataset_path)
     contracts_dirs = pd.concat([contracts_dirs_full, contracts_dirs_partial])
 
-contracts_dirs = contracts_dirs[contracts_dirs.has_src_files == True]
+contracts_dirs = contracts_dirs[contracts_dirs.has_src_files == True][:100]
 pbar = tqdm(total=len(contracts_dirs)//os.cpu_count())
 manager = Manager()
 file_hashes = manager.dict()
@@ -115,7 +115,7 @@ dataset.to_pickle(f'./slither_processed_contracts.pkl')
 with open('./files_hashes.json', 'w') as fp:
     json.dump(file_hashes.copy(), fp)
 
-with open('./duplicated_files', 'w') as fp:
+with open('./duplicated_files.txt', 'w') as fp:
     for item in duplicated_files:
         # write each item on a new line
         fp.write(str(item[0]) + ', ' + str(item[1]) + "\n")
