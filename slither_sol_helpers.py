@@ -151,3 +151,17 @@ def get_MD5_checksum(sol_data):
         return str(hashlib.md5(str(sol_data).encode('utf-8')).hexdigest())
     except Exception as ex:
         print('error in computing the checksum', ex)
+
+def get_error_or_warning_codes(level, detector_json='./detectors.json'):
+    def get_level_idx(level):
+        keys = [v['idx']  for k, v in detectors.items() if v['impact'] == str(level)]
+        return keys if len(keys) else None
+
+    with open(detector_json, 'r') as fh:
+        detectors = json.load(fh)
+    
+    if level == 'High' or level == 'Medium' or level == 'Low' or level == 'Informational' or level == 'Optimization':
+        return get_level_idx(level)
+    else:
+        raise ValueError('Wrong level for detectors. Choose High, Medium Low, Informational or Optimization')
+

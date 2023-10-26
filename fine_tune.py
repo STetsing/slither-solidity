@@ -12,14 +12,16 @@ from transformers import AutoModelForCausalLM, Trainer, TrainerCallback, Trainin
 from transformers import DataCollatorForLanguageModeling
 from slither_sol_helpers import get_sol_data
 from accelerate import Accelerator
+from slither_sol_helpers import get_error_or_warning_codes
 
+#device = 'cuda'
 device = Accelerator.device
 print('Info: Computing device is:', device)
 torch.cuda.empty_cache()
 
 block_size = 32
 context_length = block_size
-base_model = '../solidity-generator'
+base_model = 'ckandemir/solidity-generator'
 accelerator = Accelerator()
 
 training_args = TrainingArguments('test_trainer', 
@@ -37,13 +39,33 @@ training_args = TrainingArguments('test_trainer',
         logging_steps=500,
         seed=100)
 
-# raw_sol_data = load_dataset('mwritescode/slither-audited-smart-contracts', 'all-plain-text')
+# Read and filter processed files
+slither_dataset = pd.read_pickle('./slither_processed_contracts.pkl').sample(10)
+slither_dataset.reset_index(drop=True, inplace=True)
+slither_dataset["source_dir"]=slither_dataset["source_dir"].apply(lambda x: x.replace("/home/pippertetsing/", "/mnt/data/"))
+slither_dataset["sol_file"]=slither_dataset["sol_file"].apply(lambda x: x.replace("/home/pippertetsing/", "/mnt/data/"))
+slither_dataset["contracts_dirs"]=slither_dataset["contracts_dirs"].apply(lambda x: x.replace("/home/pippertetsing/", "/mnt/data/"))
 
-raw_sol_data = Dataset.from_pandas(pd.read_pickle('./slither_processed_contracts.pkl'))
-#tokenizer = AutoTokenizer.from_pretrained(base_model)
+slither_processed = slither_dataset[slither_dataset['slither_processed'] == True]
+
+# eliminate High risk files 
+high_idx = get_error_or_warning_codes('High')
+med_idx = get_error_or_warning_codes('Medium')
+def keep(x, idx_red_list):
+    if x == None:
+        return True
+    else:
+        for x_idx in x:
+            if x_idx in idx_red_list:
+                return False
+    return True
+
+slither_processed['keep'] = slither_processed.slither.apply(lambda x: keep(x, high_idx)) # remove high impact slither warnings
+dataset = slither_processed[slither_processed['keep'] == True] 
+raw_sol_data = Dataset.from_pandas(slither_processed)
+
 tokenizer = AutoTokenizer.from_pretrained(base_model)
 tokenizer.pad_token = tokenizer.eos_token
-
 data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False) # shift the input by one to the right to get the labels
 
 def tokenize_function(data):
@@ -93,7 +115,7 @@ dataset = dataset.train_test_split(test_size=0.1)
 train_set = dataset['train']
 eval_set = dataset['test']
 
-model = AutoModelForCausalLM.from_pretrained(base_model).to(device)
+model = AutoModelForCausalLM.from_pretrained(base_model)
 #model = model.to(dtype=torch.float16)
 
 param_size = 0
