@@ -31,5 +31,5 @@ $ solc-select install all
 ## Fine Tuning
 The herein provided source code supports finetuning Causal LLM. 
 ```bash 
-$ accelerate launch fine_tune.py
+$ accelerate launch --num_cpu_threads_per_process 8 fine_tune.py
 ```

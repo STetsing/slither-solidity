@@ -9,3 +9,5 @@ solidity_gpt2
 sol_dataset
 duplicated_files.txt
 files_hashes.json
+sol*
+test*

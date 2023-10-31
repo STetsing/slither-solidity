@@ -19,16 +19,16 @@ device = Accelerator.device
 print('Info: Computing device is:', device)
 torch.cuda.empty_cache()
 
-block_size = 32
+block_size = 128
 context_length = block_size
-base_model = 'ckandemir/solidity-generator'
+base_model = './solidity_gpt2_base_512'
 accelerator = Accelerator()
 
 training_args = TrainingArguments('test_trainer', 
         evaluation_strategy="epoch", 
         learning_rate=7e-5, 
-        per_device_eval_batch_size=40,
-        per_device_train_batch_size=40,
+        per_device_eval_batch_size=10,
+        per_device_train_batch_size=10,
         num_train_epochs=10,
         push_to_hub=False,
         save_total_limit=2,
@@ -40,7 +40,7 @@ training_args = TrainingArguments('test_trainer',
         seed=100)
 
 # Read and filter processed files
-slither_dataset = pd.read_pickle('./slither_processed_contracts.pkl').sample(10)
+slither_dataset = pd.read_pickle('./slither_processed_contracts.pkl')
 slither_dataset.reset_index(drop=True, inplace=True)
 slither_dataset["source_dir"]=slither_dataset["source_dir"].apply(lambda x: x.replace("/home/pippertetsing/", "/mnt/data/"))
 slither_dataset["sol_file"]=slither_dataset["sol_file"].apply(lambda x: x.replace("/home/pippertetsing/", "/mnt/data/"))
@@ -60,9 +60,11 @@ def keep(x, idx_red_list):
                 return False
     return True
 
+print('len befor keep ', len(slither_processed))
 slither_processed['keep'] = slither_processed.slither.apply(lambda x: keep(x, high_idx)) # remove high impact slither warnings
-dataset = slither_processed[slither_processed['keep'] == True] 
-raw_sol_data = Dataset.from_pandas(slither_processed)
+filtered = slither_processed[slither_processed['keep'] == True] 
+print('len after keep', len(filtered))
+dataset = Dataset.from_pandas(filtered)
 
 tokenizer = AutoTokenizer.from_pretrained(base_model)
 tokenizer.pad_token = tokenizer.eos_token
@@ -101,10 +103,9 @@ def group_texts(examples):
     result["labels"] = result["input_ids"].copy()
     return result
 
-dataset = raw_sol_data#.train_test_split(test_size=0.1)
 
 if not os.path.exists('./sol_dataset'):
-    dataset = dataset.map(tokenize_function, batched=True, remove_columns=dataset.column_names)#.map(group_texts, batched=True)
+    dataset = dataset.map(tokenize_function, batched=True, remove_columns=dataset.column_names, num_proc=os.cpu_count())#.map(group_texts, batched=True)
     dataset.save_to_disk('./sol_dataset')
 else:
     print('Info: loaded preprocessed set from disk!')
@@ -114,6 +115,8 @@ dataset = dataset.train_test_split(test_size=0.1)
 
 train_set = dataset['train']
 eval_set = dataset['test']
+print('length train set: ', len(train_set))
+print('length test set: ', len(eval_set))
 
 model = AutoModelForCausalLM.from_pretrained(base_model)
 #model = model.to(dtype=torch.float16)
