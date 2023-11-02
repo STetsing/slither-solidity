@@ -139,7 +139,11 @@ def get_sol_data(sol_file, rm_comments=False):
         if rm_comments:
             sol_no_comments = []
             for l in data:
-                sol_no_comments.append('') if l.startswith('//') else sol_no_comments.append(l) 
+                # remove multiline comments
+                if l.strip('\t').startswith('/**') or l.strip('\t').startswith('*') or l.strip('\t').startswith('*/'):
+                    continue
+
+                sol_no_comments.append('') if l.strip('\t').startswith('//') else sol_no_comments.append(l) 
             return ''.join(sol_no_comments).strip('\n')
         else:
             return ''.join(data)
