@@ -23,7 +23,7 @@ device = Accelerator.device
 print('Info: Computing device is:', device)
 torch.cuda.empty_cache()
 
-block_size = 128
+block_size = config["training"]["block_size"]
 context_length = block_size
 base_model = './solidity_gpt2_base_512'
 accelerator = Accelerator()
@@ -52,7 +52,7 @@ slither_dataset["contracts_dirs"]=slither_dataset["contracts_dirs"].apply(lambda
 
 slither_processed = slither_dataset[slither_dataset['slither_processed'] == True]
 
-# eliminate High risk files 
+# eliminate High risk impact files 
 def keep(x, idx_red_list):
     if x == None:
         return True
@@ -64,13 +64,14 @@ def keep(x, idx_red_list):
 
 print('len befor keep ', len(slither_processed))
 if config["slither"]['rm_high_idx']:
+    print('Info: removing high impact warning codes ...')
     high_idx = get_error_or_warning_codes('High')
     slither_processed['keep'] = slither_processed.slither.apply(lambda x: keep(x, high_idx)) # remove high impact slither warnings
 
 if config["slither"]['rm_med_idx']:
+    print('Info: removing medium impact warning codes ...')
     med_idx = get_error_or_warning_codes('Medium')
     slither_processed['keep'] = slither_processed.slither.apply(lambda x: keep(x, med_idx)) # remove high impact slither warnings
-
 
 filtered = slither_processed[slither_processed['keep'] == True] 
 print('len after keep', len(filtered))
