@@ -5,6 +5,7 @@ import evaluate
 import math
 import torch
 import pandas as pd
+import yaml
 from datasets import Dataset
 from datasets import load_metric, load_from_disk 
 from transformers import AutoTokenizer, RobertaTokenizer
@@ -13,6 +14,9 @@ from transformers import DataCollatorForLanguageModeling
 from slither_sol_helpers import get_sol_data
 from accelerate import Accelerator
 from slither_sol_helpers import get_error_or_warning_codes
+
+with open('./config.yml', 'r') as fh:
+    config = yaml.safe_load(fh)
 
 #device = 'cuda'
 device = Accelerator.device
@@ -25,18 +29,18 @@ base_model = './solidity_gpt2_base_512'
 accelerator = Accelerator()
 
 training_args = TrainingArguments('test_trainer', 
-        evaluation_strategy="epoch", 
-        learning_rate=7e-5, 
-        per_device_eval_batch_size=10,
-        per_device_train_batch_size=10,
-        num_train_epochs=10,
+        evaluation_strategy=config["training"]["epoch"], 
+        learning_rate=config["training"]["learning_rate"], 
+        per_device_eval_batch_size=config["training"]["batch_size"],
+        per_device_train_batch_size=config["training"]["batch_size"],
+        num_train_epochs=config["training"]["epochs"],
         push_to_hub=False,
         save_total_limit=2,
         load_best_model_at_end=True,
         save_strategy = "epoch",
         prediction_loss_only=True,
         logging_strategy="steps",
-        logging_steps=500,
+        logging_steps=config["training"][log_steps],
         seed=100)
 
 # Read and filter processed files
@@ -49,8 +53,6 @@ slither_dataset["contracts_dirs"]=slither_dataset["contracts_dirs"].apply(lambda
 slither_processed = slither_dataset[slither_dataset['slither_processed'] == True]
 
 # eliminate High risk files 
-high_idx = get_error_or_warning_codes('High')
-med_idx = get_error_or_warning_codes('Medium')
 def keep(x, idx_red_list):
     if x == None:
         return True
@@ -61,7 +63,15 @@ def keep(x, idx_red_list):
     return True
 
 print('len befor keep ', len(slither_processed))
-slither_processed['keep'] = slither_processed.slither.apply(lambda x: keep(x, high_idx)) # remove high impact slither warnings
+if config["slither"]['rm_high_idx']:
+    high_idx = get_error_or_warning_codes('High')
+    slither_processed['keep'] = slither_processed.slither.apply(lambda x: keep(x, high_idx)) # remove high impact slither warnings
+
+if config["slither"]['rm_med_idx']:
+    med_idx = get_error_or_warning_codes('Medium')
+    slither_processed['keep'] = slither_processed.slither.apply(lambda x: keep(x, med_idx)) # remove high impact slither warnings
+
+
 filtered = slither_processed[slither_processed['keep'] == True] 
 print('len after keep', len(filtered))
 dataset = Dataset.from_pandas(filtered)
@@ -72,7 +82,7 @@ data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False) 
 
 def tokenize_function(data):
     # get rid of comments in source files
-    t = tokenizer([get_sol_data(sf, True)  for sf in data['sol_file']], 
+    t = tokenizer([get_sol_data(sf, config["slither"]['rm_comments'])  for sf in data['sol_file']], 
                     max_length=context_length, 
                     padding="max_length",
                   return_overflowing_tokens=True,
