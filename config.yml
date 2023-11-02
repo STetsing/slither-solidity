@@ -1,0 +1,13 @@
+slither:
+  rm_comments: True
+  rm_high_idx: True
+  rm_med_idx: False
+
+training:
+  base_model: './solidity_gpt2_base_512'
+  eval_strategy: "epoch"
+  learning_rate: 7e-5
+  batch_size: 10
+  epochs: 10
+  log_steps: 500
+  block_size: 256
