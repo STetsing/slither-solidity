@@ -25,11 +25,12 @@ torch.cuda.empty_cache()
 
 block_size = config["training"]["block_size"]
 context_length = block_size
-base_model = './solidity_gpt2_base_512'
+#base_model = 'Pipper/finetuned_sol'
+base_model = 'ckandemir/solidity-generator'
 accelerator = Accelerator()
 
 training_args = TrainingArguments('test_trainer', 
-        evaluation_strategy=config["training"]["epoch"], 
+        evaluation_strategy=config["training"]["eval_trategy"], 
         learning_rate=config["training"]["learning_rate"], 
         per_device_eval_batch_size=config["training"]["batch_size"],
         per_device_train_batch_size=config["training"]["batch_size"],
@@ -40,7 +41,7 @@ training_args = TrainingArguments('test_trainer',
         save_strategy = "epoch",
         prediction_loss_only=True,
         logging_strategy="steps",
-        logging_steps=config["training"][log_steps],
+        logging_steps=config["training"]["log_steps"],
         seed=100)
 
 # Read and filter processed files
