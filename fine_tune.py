@@ -30,7 +30,7 @@ base_model = 'ckandemir/solidity-generator'
 accelerator = Accelerator()
 
 training_args = TrainingArguments('test_trainer', 
-        evaluation_strategy=config["training"]["eval_trategy"], 
+        evaluation_strategy=config["training"]["eval_strategy"], 
         learning_rate=config["training"]["learning_rate"], 
         per_device_eval_batch_size=config["training"]["batch_size"],
         per_device_train_batch_size=config["training"]["batch_size"],
@@ -47,9 +47,9 @@ training_args = TrainingArguments('test_trainer',
 # Read and filter processed files
 slither_dataset = pd.read_pickle('./slither_processed_contracts.pkl')
 slither_dataset.reset_index(drop=True, inplace=True)
-slither_dataset["source_dir"]=slither_dataset["source_dir"].apply(lambda x: x.replace("/home/pippertetsing/", "/mnt/data/"))
-slither_dataset["sol_file"]=slither_dataset["sol_file"].apply(lambda x: x.replace("/home/pippertetsing/", "/mnt/data/"))
-slither_dataset["contracts_dirs"]=slither_dataset["contracts_dirs"].apply(lambda x: x.replace("/home/pippertetsing/", "/mnt/data/"))
+slither_dataset["source_dir"]=slither_dataset["source_dir"].apply(lambda x: x.replace("/home/pippertetsing/sourcify_contract_data/", "/Users/pippertetsing/Desktop/work/Remix/solcoder/"))
+slither_dataset["sol_file"]=slither_dataset["sol_file"].apply(lambda x: x.replace("/home/pippertetsing/sourcify_contract_data/", "/Users/pippertetsing/Desktop/work/Remix/solcoder/"))
+slither_dataset["contracts_dirs"]=slither_dataset["contracts_dirs"].apply(lambda x: x.replace("/home/pippertetsing/sourcify_contract_data/", "/Users/pippertetsing/Desktop/work/Remix/solcoder/"))
 
 slither_processed = slither_dataset[slither_dataset['slither_processed'] == True]
 
@@ -84,19 +84,8 @@ data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False) 
 
 def tokenize_function(data):
     # get rid of comments in source files
-    t = tokenizer([get_sol_data(sf, config["slither"]['rm_comments'])  for sf in data['sol_file']], 
-                    max_length=context_length, 
-                    padding="max_length",
-                  return_overflowing_tokens=True,
-                  return_length=True,
-                  truncation=True) #  truncation=True, max_length=16, return_length=True, return_overflowing_tokens=True)
+    return tokenizer([ " ".join(get_sol_data(sf, config["slither"]['rm_comments'])) for sf in data['sol_file']]) #  truncation=True, max_length=16, return_length=True, return_overflowing_tokens=True)
     
-    input_batch = []
-    for l, ids in zip(t['length'], t['input_ids']):
-        if l == context_length:
-            input_batch.append(ids)
-
-    return {'input_ids': input_batch}
 
 
 def group_texts(examples):
@@ -117,7 +106,7 @@ def group_texts(examples):
 
 
 if not os.path.exists('./sol_dataset'):
-    dataset = dataset.map(tokenize_function, batched=True, remove_columns=dataset.column_names, num_proc=os.cpu_count())#.map(group_texts, batched=True)
+    dataset = dataset.map(tokenize_function, batched=True, remove_columns=dataset.column_names, num_proc=os.cpu_count()).map(group_texts, batched=True,  num_proc=os.cpu_count())
     dataset.save_to_disk('./sol_dataset')
 else:
     print('Info: loaded preprocessed set from disk!')
