@@ -14,6 +14,7 @@ from transformers import DataCollatorForLanguageModeling
 from slither_sol_helpers import get_sol_data
 from accelerate import Accelerator
 from slither_sol_helpers import get_error_or_warning_codes
+from datetime import datetime
 
 with open('./config.yml', 'r') as fh:
     config = yaml.safe_load(fh)
@@ -29,7 +30,7 @@ context_length = block_size
 base_model = 'ckandemir/solidity-generator'
 dataset_repo = "Pipper/solidity"
 accelerator = Accelerator()
-process_local = True
+process_local = False
 
 training_args = TrainingArguments('test_trainer', 
         evaluation_strategy=config["training"]["eval_strategy"], 
@@ -174,5 +175,5 @@ trainer.train()
 
 tokenizer.save_pretrained('./solidity_gpt2')
 trainer.save_model('./solidity_gpt2')
-trainer.push_to_hub("sol_completion",commit_message="training solidity generator", token=os.environ.get("HF_TOKEN"))
+trainer.push_to_hub("sol_completion",commit_message="training solidity generator"+datetime.now.strftime("%m/%d/%Y, %H:%M:%S"), token=os.environ.get("HF_TOKEN"))
 
