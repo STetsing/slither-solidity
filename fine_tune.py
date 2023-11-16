@@ -29,7 +29,7 @@ context_length = block_size
 base_model = 'ckandemir/solidity-generator'
 dataset_repo = "Pipper/solidity"
 accelerator = Accelerator()
-process_local = False
+process_local = True
 
 training_args = TrainingArguments('test_trainer', 
         evaluation_strategy=config["training"]["eval_strategy"], 
@@ -93,7 +93,8 @@ if process_local:
                     return False
         return True
 
-    print('len befor keep ', len(slither_processed))
+    print('len before keep ', len(slither_processed))
+    slither_processed['keep'] = True
     if config["slither"]['rm_high_idx']:
         print('Info: removing high impact warning codes ...')
         high_idx = get_error_or_warning_codes('High')
@@ -109,13 +110,18 @@ if process_local:
     dataset = Dataset.from_pandas(filtered)
 
     if not os.path.exists('./sol_dataset'):
+        print('INFO: Length dataset before tokenization:', len(dataset))
         dataset = dataset.map(tokenize_function, batched=True, remove_columns=dataset.column_names, num_proc=os.cpu_count()).map(group_texts, batched=True,  num_proc=os.cpu_count())
         dataset.save_to_disk('./sol_dataset')
+        print('INFO: Length dataset after tokenization:', len(dataset))
     else:
         print('Info: loaded preprocessed set from disk!')
         dataset = load_from_disk('./sol_dataset')
+        print('INFO: Length dataset loaded', len(dataset))
 else:
+    print('INFO: Loading dataset from hugginface ...')
     dataset = load_dataset(dataset_repo)
+    print('INFO: Loaded dataset from hugginface')
 
 dataset = dataset.train_test_split(test_size=0.1)
 

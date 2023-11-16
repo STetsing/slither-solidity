@@ -1,6 +1,6 @@
 slither:
-  rm_comments: True
-  rm_high_idx: True
+  rm_comments: False
+  rm_high_idx: False
   rm_med_idx: False
 
 training:
