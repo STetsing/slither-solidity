@@ -7,7 +7,7 @@ import torch
 import pandas as pd
 import yaml
 from datasets import Dataset
-from datasets import load_metric, load_from_disk 
+from datasets import load_metric, load_from_disk, load_dataset
 from transformers import AutoTokenizer, RobertaTokenizer
 from transformers import AutoModelForCausalLM, Trainer, TrainerCallback, TrainingArguments, T5ForConditionalGeneration
 from transformers import DataCollatorForLanguageModeling
@@ -27,7 +27,9 @@ block_size = config["training"]["block_size"]
 context_length = block_size
 #base_model = 'Pipper/finetuned_sol'
 base_model = 'ckandemir/solidity-generator'
+dataset_repo = "Pipper/solidity"
 accelerator = Accelerator()
+process_local = False
 
 training_args = TrainingArguments('test_trainer', 
         evaluation_strategy=config["training"]["eval_strategy"], 
@@ -43,40 +45,6 @@ training_args = TrainingArguments('test_trainer',
         logging_strategy="steps",
         logging_steps=config["training"]["log_steps"],
         seed=100)
-
-# Read and filter processed files
-slither_dataset = pd.read_pickle('./slither_processed_contracts.pkl')
-slither_dataset.reset_index(drop=True, inplace=True)
-slither_dataset["source_dir"]=slither_dataset["source_dir"].apply(lambda x: x.replace("/home/pippertetsing/sourcify_contract_data/", "/Users/pippertetsing/Desktop/work/Remix/solcoder/"))
-slither_dataset["sol_file"]=slither_dataset["sol_file"].apply(lambda x: x.replace("/home/pippertetsing/sourcify_contract_data/", "/Users/pippertetsing/Desktop/work/Remix/solcoder/"))
-slither_dataset["contracts_dirs"]=slither_dataset["contracts_dirs"].apply(lambda x: x.replace("/home/pippertetsing/sourcify_contract_data/", "/Users/pippertetsing/Desktop/work/Remix/solcoder/"))
-
-slither_processed = slither_dataset[slither_dataset['slither_processed'] == True]
-
-# eliminate High risk impact files 
-def keep(x, idx_red_list):
-    if x == None:
-        return True
-    else:
-        for x_idx in x:
-            if x_idx in idx_red_list:
-                return False
-    return True
-
-print('len befor keep ', len(slither_processed))
-if config["slither"]['rm_high_idx']:
-    print('Info: removing high impact warning codes ...')
-    high_idx = get_error_or_warning_codes('High')
-    slither_processed['keep'] = slither_processed.slither.apply(lambda x: keep(x, high_idx)) # remove high impact slither warnings
-
-if config["slither"]['rm_med_idx']:
-    print('Info: removing medium impact warning codes ...')
-    med_idx = get_error_or_warning_codes('Medium')
-    slither_processed['keep'] = slither_processed.slither.apply(lambda x: keep(x, med_idx)) # remove high impact slither warnings
-
-filtered = slither_processed[slither_processed['keep'] == True] 
-print('len after keep', len(filtered))
-dataset = Dataset.from_pandas(filtered)
 
 tokenizer = AutoTokenizer.from_pretrained(base_model)
 tokenizer.pad_token = tokenizer.eos_token
@@ -105,12 +73,49 @@ def group_texts(examples):
     return result
 
 
-if not os.path.exists('./sol_dataset'):
-    dataset = dataset.map(tokenize_function, batched=True, remove_columns=dataset.column_names, num_proc=os.cpu_count()).map(group_texts, batched=True,  num_proc=os.cpu_count())
-    dataset.save_to_disk('./sol_dataset')
+if process_local:
+    # Read and filter processed files
+    slither_dataset = pd.read_pickle('./slither_processed_contracts.pkl')
+    slither_dataset.reset_index(drop=True, inplace=True)
+    slither_dataset["source_dir"]=slither_dataset["source_dir"].apply(lambda x: x.replace("/home/pippertetsing/sourcify_contract_data/", "/Users/pippertetsing/Desktop/work/Remix/solcoder/"))
+    slither_dataset["sol_file"]=slither_dataset["sol_file"].apply(lambda x: x.replace("/home/pippertetsing/sourcify_contract_data/", "/Users/pippertetsing/Desktop/work/Remix/solcoder/"))
+    slither_dataset["contracts_dirs"]=slither_dataset["contracts_dirs"].apply(lambda x: x.replace("/home/pippertetsing/sourcify_contract_data/", "/Users/pippertetsing/Desktop/work/Remix/solcoder/"))
+
+    slither_processed = slither_dataset[slither_dataset['slither_processed'] == True]
+
+    # eliminate High risk impact files 
+    def keep(x, idx_red_list):
+        if x == None:
+            return True
+        else:
+            for x_idx in x:
+                if x_idx in idx_red_list:
+                    return False
+        return True
+
+    print('len befor keep ', len(slither_processed))
+    if config["slither"]['rm_high_idx']:
+        print('Info: removing high impact warning codes ...')
+        high_idx = get_error_or_warning_codes('High')
+        slither_processed['keep'] = slither_processed.slither.apply(lambda x: keep(x, high_idx)) # remove high impact slither warnings
+
+    if config["slither"]['rm_med_idx']:
+        print('Info: removing medium impact warning codes ...')
+        med_idx = get_error_or_warning_codes('Medium')
+        slither_processed['keep'] = slither_processed.slither.apply(lambda x: keep(x, med_idx)) # remove high impact slither warnings
+
+    filtered = slither_processed[slither_processed['keep'] == True] 
+    print('len after keep', len(filtered))
+    dataset = Dataset.from_pandas(filtered)
+
+    if not os.path.exists('./sol_dataset'):
+        dataset = dataset.map(tokenize_function, batched=True, remove_columns=dataset.column_names, num_proc=os.cpu_count()).map(group_texts, batched=True,  num_proc=os.cpu_count())
+        dataset.save_to_disk('./sol_dataset')
+    else:
+        print('Info: loaded preprocessed set from disk!')
+        dataset = load_from_disk('./sol_dataset')
 else:
-    print('Info: loaded preprocessed set from disk!')
-    dataset = load_from_disk('./sol_dataset')
+    dataset = load_dataset(dataset_repo)
 
 dataset = dataset.train_test_split(test_size=0.1)
 
