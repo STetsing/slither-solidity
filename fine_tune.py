@@ -28,11 +28,11 @@ block_size = config["training"]["block_size"]
 context_length = block_size
 #base_model = 'Pipper/finetuned_sol'
 base_model = 'ckandemir/solidity-generator'
-dataset_repo = "Pipper/solidity"
+dataset_repo = "Pipper/sol_processed_data"
 accelerator = Accelerator()
 process_local = False
 
-training_args = TrainingArguments('test_trainer', 
+training_args = TrainingArguments('finetuned_sol', 
         evaluation_strategy=config["training"]["eval_strategy"], 
         learning_rate=config["training"]["learning_rate"], 
         per_device_eval_batch_size=config["training"]["batch_size"],
@@ -124,10 +124,10 @@ else:
     dataset = load_dataset(dataset_repo)
     print('INFO: Loaded dataset from hugginface')
 
-dataset = dataset.train_test_split(test_size=0.1)
+dataset = dataset['train'].train_test_split(test_size=0.1)
 
-train_set = dataset['train']
-eval_set = dataset['test']
+train_set = dataset['train'].select(range(100))
+eval_set = dataset['test'].select(range(100))
 print('length train set: ', len(train_set))
 print('length test set: ', len(eval_set))
 
@@ -175,5 +175,5 @@ trainer.train()
 
 tokenizer.save_pretrained('./solidity_gpt2')
 trainer.save_model('./solidity_gpt2')
-trainer.push_to_hub("sol_completion",commit_message="training solidity generator"+datetime.now.strftime("%m/%d/%Y, %H:%M:%S"), token=os.environ.get("HF_TOKEN"))
+trainer.push_to_hub(commit_message="training solidity generator"+datetime.now().strftime("%m/%d/%Y, %H:%M:%S"))
 

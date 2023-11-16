@@ -6,7 +6,7 @@ slither:
 training:
   base_model: './solidity_gpt2_base_512'
   eval_strategy: "epoch"
-  learning_rate: 7e-5
+  learning_rate: 0.000007
   batch_size: 10
   epochs: 10
   log_steps: 500
