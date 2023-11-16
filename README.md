@@ -33,3 +33,9 @@ The herein provided source code supports finetuning Causal LLM.
 ```bash 
 $ accelerate launch --num_cpu_threads_per_process 8 fine_tune.py
 ```
+
+## Setup the hugginface token 
+Important: The token must have write access
+``` 
+export HF_TOKEN="your write access token"
+```

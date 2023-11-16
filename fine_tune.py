@@ -174,3 +174,5 @@ trainer.train()
 
 tokenizer.save_pretrained('./solidity_gpt2')
 trainer.save_model('./solidity_gpt2')
+trainer.push_to_hub("sol_completion",commit_message="training solidity generator", token=os.environ.get("HF_TOKEN"))
+
